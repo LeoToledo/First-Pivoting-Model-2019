@@ -23,12 +23,12 @@ EPSILON_MIN = 0.01
 LEARNING_RATE = 0.01
 
 BUFFER_LEN = 200000000
-NUMBER_OF_EPISODES = 1
+NUMBER_OF_EPISODES = 1200
 NUMBER_OF_ITERATIONS = 1200
 PICK_FROM_BUFFER_SIZE = 48
 DESIRED_ANGLE = 15
 
-NUMBER_OF_ACTIONS = 8
+NUMBER_OF_ACTIONS = 3
 
 class DQN_Agent:
     def __init__(self, env):
@@ -146,45 +146,35 @@ class DQN_Agent:
 #Define qual ação complexa será executada
     def check_action(self, act):
         self.check_act = []
-        #Vai para a esquerda e pressiona o gripper
-        if(act == 0):
-            self.check_act.append(0.08)
-            self.check_act.append(-0.015)
-            
-        #Vai para a direita e pressiona o gripper
-        elif(act == 1):
-            self.check_act.append(-0.08)
-            self.check_act.append(-0.015)
-       
-        #Fica parado e pressiona o gripper
-        elif(act == 2):
-            self.check_act.append(0)
-            self.check_act.append(-0.015)
+#        #Vai para a esquerda e pressiona o gripper
+#        if(act == 0):
+#            self.check_act.append(0.1)
+#            self.check_act.append(-0.005)
+#            
+#        #Vai para a direita e pressiona o gripper
+#        elif(act == 1):
+#            self.check_act.append(-0.1)
+#            self.check_act.append(-0.005)
+#       
+#        #Fica parado e pressiona o gripper
+#        elif(act == 2):
+#            self.check_act.append(0)
+#            self.check_act.append(-0.005)
         
         #Vai para a esquerda e não pressiona o gripper
-        elif(act == 3):
-            self.check_act.append(0.08)
-            self.check_act.append(0)
+        if(act == 0):
+            self.check_act.append(0.1)
+#            self.check_act.append(0.1)
          
         #Vai para a direita e não pressiona o gripper    
-        elif(act == 4):
-            self.check_act.append(-0.08)
-            self.check_act.append(0)
+        elif(act == 1):
+            self.check_act.append(-0.1)
+#            self.check_act.append(0.1)
         
         #Fica parado e não pressiona o gripper
-        elif(act == 5):
+        elif(act == 2):
             self.check_act.append(0)
-            self.check_act.append(0)
-            
-        #Vai pouco para a esquerda e não pressiona
-        elif(act == 6):
-            self.check_act.append(0.04)
-            self.check_act.append(0)
-        
-        #Vai pouco para a direita e não pressiona
-        elif(act == 7):
-            self.check_act.append(-0.04)
-            self.check_act.append(0)
+#            self.check_act.append(0.1)
             
         return self.check_act
             
@@ -207,17 +197,20 @@ class DQN_Agent:
                 #Convertendo o angulo atual do gripper para radianos
                 angulo_gripper = angulo_gripper*np.pi/180
                 #Caso o gripper atinja o ângulo que deveria ser tomado antigamente, ele escolhe uma nova ação para tomar
-                if(angulo_gripper >= (self.action_taken[0] - 0.001) and angulo_gripper <= (self.action_taken[0] + 0.001) ):
+                if(angulo_gripper >= (self.action_taken[0] - 0.01) and angulo_gripper <= (self.action_taken[0] + 0.01) and i != 0):
+#                    print("***************************************************************************************************")
+#                    print("***************************************************************************************************")
                     #Escolhe o número da ação a ser tomada
                     action = self.greedy_action(current_state)
                     #Cria um vetor que irá receber o valor da ação complexa
                     self.action_taken = []
-                    #Adiciona a ação complexa no vetor
-                    self.action_taken = self.check_action(action)
-                print("ANGULO DO GRIPPER DESEJADO: ", self.action_taken[0])
-                print("ANGULO DO GRIPPER ATUAL: ", angulo_gripper)
-                #Agente toma a ação
-                new_state, reward, done, _ = env.step(self.action_taken )
+                    #Adiciona a ação complexa no vetor. Agora, ela será um adicional de movimento em relação à posição anterior do gripper
+                    self.action_taken = self.check_action(action) + angulo_gripper
+#                print("ANGULO DESEJADO: ", round(self.action_taken[0], 3))
+#                print("ANGULO ATUAL: ", round(angulo_gripper, 3))
+                
+                #Agente toma a ação. Ou seja, o Gripper recebe a posição para a qual deve ir e vai para ela.
+                new_state, reward, done, _ = env.step(self.action_taken)
                 
                 #Dando reshape no new_state
                 new_state = new_state.reshape(1, env.observation_space.shape[0])
@@ -228,7 +221,6 @@ class DQN_Agent:
                 new_state = np.asarray( [ [ang_rel] ] ) 
                 
                 new_state = new_state.reshape(1, 1)
-                
                  #Renderiza a cada N episódios
                 if(eps%1 == 0):
                    env.render()
@@ -246,7 +238,7 @@ class DQN_Agent:
                     reward = 1
                     
                     #Caso fique uma quantidade minima de tempo no angulo desejado, conclui o episódio
-                    if(self.desired_angle_counter >= 50):
+                    if(self.desired_angle_counter >= 100):
                         self.desired_angle_counter = 0
                         done = 1
                         completou = 1
