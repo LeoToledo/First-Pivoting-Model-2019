@@ -1,7 +1,6 @@
 # PivotingTaskRL
 Reinforcement Learning for Pivoting Task
 
-The goal of this code is to reproduce an article written by Rika Antonova, Silvia Cruciani, Christian Smith and Danica Kragic.
-The reproduction will be done on a Kuka Robot, instead of a Baxter.
+O objetivo é utilizar-se de Transfer Learning para a realização de uma tarefa de Pivoteamento. A tarefa é aprendida por meio de Reinforcement Learning. O Transfer Learning se dará pela união de um ambiente simulado e real. A simulação é feita em mujoco.
 
-Link of the Article: https://arxiv.org/abs/1703.00472
+Link com mais informações: "Em breve"...
