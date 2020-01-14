@@ -23,7 +23,7 @@ EPSILON_MIN = 0.01
 LEARNING_RATE = 0.01
 
 BUFFER_LEN = 200000000
-NUMBER_OF_EPISODES = 10000
+NUMBER_OF_EPISODES = 1
 NUMBER_OF_ITERATIONS = 1200
 PICK_FROM_BUFFER_SIZE = 48
 DESIRED_ANGLE = 15
@@ -63,7 +63,8 @@ class DQN_Agent:
     def create_network(self):
         model = models.Sequential()
         #Pega o tamanho do espaço de observações do ambiente
-        state_shape = self.env.observation_space.shape
+#        state_shape = self.env.observation_space.shape
+        state_shape = (1,)
         
         #A rede tem duas hidden layers, uma com 24 nós e outra com 48
         model.add(layers.Dense(32, activation='relu', input_shape=state_shape))
@@ -111,11 +112,11 @@ class DQN_Agent:
         #Transforma a lista de estados em um array
         states_array = np.array(states) 
         #Dá um reshape, criando uma linha para cada step(para cada sample) e n colunas, uma para cada estado.
-        states = states_array.reshape(self.pick_buffer_every, env.observation_space.shape[0])
+        states = states_array.reshape(self.pick_buffer_every, 1)
         #Transforma a lista de estados em um array
         new_states_array = np.array(new_states)
         #Dá um reshape, criando uma linha para cada step(para cada sample) e n colunas, uma para cada estado.
-        new_states = new_states_array.reshape(self.pick_buffer_every, env.observation_space.shape[0])
+        new_states = new_states_array.reshape(self.pick_buffer_every, 1)
     
         #Dá um predict na model_network para pegar os Q-values atuais
         targets = self.model_network.predict(states)
@@ -147,12 +148,12 @@ class DQN_Agent:
         self.check_act = []
         #Vai para a esquerda e pressiona o gripper
         if(act == 0):
-            self.check_act.append(0.8)
+            self.check_act.append(0.08)
             self.check_act.append(-0.015)
             
         #Vai para a direita e pressiona o gripper
         elif(act == 1):
-            self.check_act.append(-0.8)
+            self.check_act.append(-0.08)
             self.check_act.append(-0.015)
        
         #Fica parado e pressiona o gripper
@@ -162,12 +163,12 @@ class DQN_Agent:
         
         #Vai para a esquerda e não pressiona o gripper
         elif(act == 3):
-            self.check_act.append(0.8)
+            self.check_act.append(0.08)
             self.check_act.append(0)
          
         #Vai para a direita e não pressiona o gripper    
         elif(act == 4):
-            self.check_act.append(-0.8)
+            self.check_act.append(-0.08)
             self.check_act.append(0)
         
         #Fica parado e não pressiona o gripper
@@ -177,17 +178,17 @@ class DQN_Agent:
             
         #Vai pouco para a esquerda e não pressiona
         elif(act == 6):
-            self.check_act.append(0.4)
+            self.check_act.append(0.04)
             self.check_act.append(0)
         
         #Vai pouco para a direita e não pressiona
         elif(act == 7):
-            self.check_act.append(-0.4)
+            self.check_act.append(-0.04)
             self.check_act.append(0)
             
         return self.check_act
             
-    def play(self, current_state, eps):
+    def play(self, current_state,angulo_gripper, eps):
             reward_sum = 0
             
             #Contador que garante que a ferramenta fique parada no ângulo desejado por uma quantidade mínima de tempo
@@ -195,25 +196,45 @@ class DQN_Agent:
             
             #Itera nos steps
             for i in range(self.iteration_num):
-                
-                #Escolhe o número da ação a ser tomada
-                action = self.greedy_action(current_state)
-                
-                #Cria um vetor que irá receber o valor da ação complexa
-                self.action_taken = []
-                
-                #Adiciona a ação complexa no vetor
-                self.action_taken = self.check_action(action)
+                if(i == 0):
+                    #Escolhe o número da ação a ser tomada
+                    action = self.greedy_action(current_state)
+                    #Cria um vetor que irá receber o valor da ação complexa
+                    self.action_taken = []
+                    #Adiciona a ação complexa no vetor
+                    self.action_taken = self.check_action(action)
+                    
+                #Convertendo o angulo atual do gripper para radianos
+                angulo_gripper = angulo_gripper*np.pi/180
+                #Caso o gripper atinja o ângulo que deveria ser tomado antigamente, ele escolhe uma nova ação para tomar
+                if(angulo_gripper >= (self.action_taken[0] - 0.001) and angulo_gripper <= (self.action_taken[0] + 0.001) ):
+                    #Escolhe o número da ação a ser tomada
+                    action = self.greedy_action(current_state)
+                    #Cria um vetor que irá receber o valor da ação complexa
+                    self.action_taken = []
+                    #Adiciona a ação complexa no vetor
+                    self.action_taken = self.check_action(action)
+                print("ANGULO DO GRIPPER DESEJADO: ", self.action_taken[0])
+                print("ANGULO DO GRIPPER ATUAL: ", angulo_gripper)
                 #Agente toma a ação
                 new_state, reward, done, _ = env.step(self.action_taken )
+                
+                #Dando reshape no new_state
                 new_state = new_state.reshape(1, env.observation_space.shape[0])
+
+                #O new_state é recebido como um espaço de 9 elementos, devemos remodelá-lo aqui também para 2
+                ang_rel = new_state[0][5] - new_state[0][0]
+                angulo_gripper = new_state[0][0]
+                new_state = np.asarray( [ [ang_rel] ] ) 
+                
+                new_state = new_state.reshape(1, 1)
                 
                  #Renderiza a cada N episódios
-                if(eps%30 == 0):
+                if(eps%1 == 0):
                    env.render()
              
                 #Definição do ângulo relativo entre o Gripper e a Ferramenta
-                relative_angle = new_state[0][5] - new_state[0][0]
+                relative_angle = new_state[0][0]
                 #Definição dos limites aceitáveis de sucesso
                 self.desired_angle_lowbound = self.desired_angle - 0.4
                 self.desired_angle_highbound = self.desired_angle + 0.4
@@ -272,8 +293,18 @@ class DQN_Agent:
         #Itera nos episódios
         for eps in range(self.episode_num):
             
+            #Dá reset no ambiente, pegando seu estado atual com 9 elementos
             current_state = env.reset().reshape(1, env.observation_space.shape[0])
-            self.play(current_state, eps)
+            
+            #Guarda o ângulo relativo da ferramenta em relação ao gripper e o ângulo absoluto do gripper
+            angulo_relativo = current_state[0][5] - current_state[0][0]
+            angulo_gripper = current_state[0][0]
+            
+            #Remodela o espaço de observações para uma ndarray de 2 elementos
+            current_state = np.asarray( [ [angulo_relativo] ] )
+            
+            #Chama a função que realiza o treinamento
+            self.play(current_state,angulo_gripper , eps)
             
             #Na primeiras 10 iterações, a taxa de exploração é de 100%
             if(eps <= 9 ):
