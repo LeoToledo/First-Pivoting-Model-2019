@@ -8,7 +8,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import keras
-
 ########################################################################
 #Para rodar com a gpu
 config = tf.ConfigProto( device_count = {'GPU': 2 , 'CPU': 1} ) 
@@ -18,17 +17,17 @@ keras.backend.set_session(sess)
 
 GAMMA = 0.99
 EPSILON = 1
-EPSILON_DECAY = 0.01
+EPSILON_DECAY = 0.005
 EPSILON_MIN = 0.01
 LEARNING_RATE = 0.01
 
-BUFFER_LEN = 200000000
-NUMBER_OF_EPISODES = 1200
-NUMBER_OF_ITERATIONS = 1200
-PICK_FROM_BUFFER_SIZE = 48
-DESIRED_ANGLE = 15
+BUFFER_LEN = 20000000
+NUMBER_OF_EPISODES = 2500
+NUMBER_OF_ITERATIONS = 2400
+PICK_FROM_BUFFER_SIZE = 24
+DESIRED_ANGLE = 4
 
-NUMBER_OF_ACTIONS = 3
+NUMBER_OF_ACTIONS = 6
 
 class DQN_Agent:
     def __init__(self, env):
@@ -97,7 +96,7 @@ class DQN_Agent:
         
         #Pega uma amostra randomica do buffer. A amostra possui tamanho "pick_buffer_every"
         samples = random.sample(self.replay_buffer, self.pick_buffer_every)
-            
+        
         states = []
         new_states=[]
             
@@ -142,39 +141,39 @@ class DQN_Agent:
             
         #Por fim, treina a model_network com os Q-values atualizados
         self.model_network.fit(states, targets, epochs=1, verbose=0)
-    
+
 #Define qual ação complexa será executada
     def check_action(self, act):
-        self.check_act = []
+        self.check_act = env.action_space.sample()
 #        #Vai para a esquerda e pressiona o gripper
-#        if(act == 0):
-#            self.check_act.append(0.1)
-#            self.check_act.append(-0.005)
-#            
-#        #Vai para a direita e pressiona o gripper
-#        elif(act == 1):
-#            self.check_act.append(-0.1)
-#            self.check_act.append(-0.005)
-#       
-#        #Fica parado e pressiona o gripper
-#        elif(act == 2):
-#            self.check_act.append(0)
-#            self.check_act.append(-0.005)
+        if(act == 0):
+            self.check_act[0] = 0.45
+            self.check_act[0] = -0.009
+            
+        #Vai para a direita e pressiona o gripper
+        elif(act == 1):
+            self.check_act[0] = -0.45
+            self.check_act[0] = -0.009
+       
+        #Fica parado e pressiona o gripper
+        elif(act == 2):
+            self.check_act[0] = 0
+            self.check_act[0] = -0.009
         
         #Vai para a esquerda e não pressiona o gripper
-        if(act == 0):
-            self.check_act.append(0.1)
-#            self.check_act.append(0.1)
+        if(act == 3):
+            self.check_act[0] = 0.3
+            self.check_act[1] = 0
          
         #Vai para a direita e não pressiona o gripper    
-        elif(act == 1):
-            self.check_act.append(-0.1)
-#            self.check_act.append(0.1)
+        elif(act == 4):
+            self.check_act[0] = -0.3
+            self.check_act[1] = 0
         
         #Fica parado e não pressiona o gripper
-        elif(act == 2):
-            self.check_act.append(0)
-#            self.check_act.append(0.1)
+        elif(act == 5):
+            self.check_act[0] = 0
+            self.check_act[1] = 0
             
         return self.check_act
             
@@ -184,28 +183,31 @@ class DQN_Agent:
             #Contador que garante que a ferramenta fique parada no ângulo desejado por uma quantidade mínima de tempo
             self.desired_angle_counter = 0
             
+            #Cria um vetor que irá receber o valor da ação complexa
+            self.action_taken = env.action_space.sample()
+            
             #Itera nos steps
             for i in range(self.iteration_num):
+                
                 if(i == 0):
                     #Escolhe o número da ação a ser tomada
                     action = self.greedy_action(current_state)
-                    #Cria um vetor que irá receber o valor da ação complexa
-                    self.action_taken = []
+                    
                     #Adiciona a ação complexa no vetor
                     self.action_taken = self.check_action(action)
                     
                 #Convertendo o angulo atual do gripper para radianos
-                angulo_gripper = angulo_gripper*np.pi/180
+                angulo_gripper = angulo_gripper*np.pi/200
+                
                 #Caso o gripper atinja o ângulo que deveria ser tomado antigamente, ele escolhe uma nova ação para tomar
-                if(angulo_gripper >= (self.action_taken[0] - 0.01) and angulo_gripper <= (self.action_taken[0] + 0.01) and i != 0):
-#                    print("***************************************************************************************************")
-#                    print("***************************************************************************************************")
+                if(angulo_gripper >= (self.action_taken[0] - 0.03) and angulo_gripper <= (self.action_taken[0] + 0.03) and i != 0):
                     #Escolhe o número da ação a ser tomada
                     action = self.greedy_action(current_state)
-                    #Cria um vetor que irá receber o valor da ação complexa
-                    self.action_taken = []
+                   
                     #Adiciona a ação complexa no vetor. Agora, ela será um adicional de movimento em relação à posição anterior do gripper
-                    self.action_taken = self.check_action(action) + angulo_gripper
+                    self.action_taken = self.check_action(action)
+                    self.action_taken[0] = self.action_taken[0]  + angulo_gripper
+                    
 #                print("ANGULO DESEJADO: ", round(self.action_taken[0], 3))
 #                print("ANGULO ATUAL: ", round(angulo_gripper, 3))
                 
@@ -221,8 +223,9 @@ class DQN_Agent:
                 new_state = np.asarray( [ [ang_rel] ] ) 
                 
                 new_state = new_state.reshape(1, 1)
+                
                  #Renderiza a cada N episódios
-                if(eps%1 == 0):
+                if(eps%200 == 0):
                    env.render()
              
                 #Definição do ângulo relativo entre o Gripper e a Ferramenta
@@ -235,10 +238,12 @@ class DQN_Agent:
                 if(relative_angle >= self.desired_angle_lowbound and relative_angle <= self.desired_angle_highbound):
                     #Quanto mais tempo ele ficar na posição desejada, mais recompensa ele receberá
                     self.desired_angle_counter = self.desired_angle_counter + 1
-                    reward = 1
+#                    reward = 0
+                    reward = (-1)*np.abs(relative_angle - self.desired_angle)/180
                     
                     #Caso fique uma quantidade minima de tempo no angulo desejado, conclui o episódio
                     if(self.desired_angle_counter >= 100):
+                        reward = 50
                         self.desired_angle_counter = 0
                         done = 1
                         completou = 1
@@ -275,7 +280,7 @@ class DQN_Agent:
                 print("Episodio: ", eps, " - FAILED - ", i, "Steps", " || Reward: ", reward_sum, " || EPSILON: ", self.epsilon, "Angulo final: ", relative_angle)
             else:
                 print("Episodio: ", eps, " - SUCESSO - ", i, "Steps", " || Reward: ", reward_sum, " || EPSILON: ", self.epsilon, "Angulo final: ", relative_angle)
-                self.model_network.save('./PivotingTrainedNet', eps, 'h5')
+                self.model_network.save('./ParcialPivoting', eps, 'h5')
             
             #Copia os pesos da target para a train
             self.target_network.set_weights(self.model_network.get_weights())
@@ -304,7 +309,7 @@ class DQN_Agent:
             else:
                 #Decai o epsilon
                 self.epsilon -= self.epsilon_decay
-
+        self.model_network.save('./ParcialPivoting', eps, 'h5')
     
     def plotar_graficos(self):
     #Plotando a reward
@@ -323,7 +328,7 @@ class DQN_Agent:
             
                     
 env = gym.make("Pivoting-v0")
-env._max_episode_steps = 1200
+env._max_episode_steps = 2400
 dqn = DQN_Agent(env)
 dqn.start()
     
